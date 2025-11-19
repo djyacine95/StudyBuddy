@@ -1,38 +1,348 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import {
+  users,
+  classes,
+  availability,
+  groups,
+  groupMembers,
+  sessions_study,
+  messages,
+  checklistItems,
+  type User,
+  type UpsertUser,
+  type UpdateUserPreferences,
+  type Class,
+  type InsertClass,
+  type Availability,
+  type InsertAvailability,
+  type Group,
+  type InsertGroup,
+  type GroupMember,
+  type Session,
+  type InsertSession,
+  type Message,
+  type InsertMessage,
+  type ChecklistItem,
+  type InsertChecklistItem,
+  type GroupWithMembers,
+  type SessionWithDetails,
+  type MessageWithUser,
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
+  // User operations (mandatory for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  updateUserPreferences(id: string, preferences: UpdateUserPreferences): Promise<User>;
+  getAllUsersForMatching(): Promise<User[]>;
+
+  // Class operations
+  createClass(userId: string, classData: InsertClass): Promise<Class>;
+  getClassesByUser(userId: string): Promise<Class[]>;
+  deleteClass(id: string): Promise<void>;
+
+  // Availability operations
+  createAvailability(userId: string, availabilityData: InsertAvailability): Promise<Availability>;
+  getAvailabilityByUser(userId: string): Promise<Availability[]>;
+  deleteAvailability(id: string): Promise<void>;
+
+  // Group operations
+  createGroup(groupData: InsertGroup): Promise<Group>;
+  getGroupById(id: string): Promise<GroupWithMembers | undefined>;
+  getGroupsByUser(userId: string): Promise<GroupWithMembers[]>;
+  addUserToGroup(groupId: string, userId: string): Promise<GroupMember>;
+
+  // Session operations
+  createSession(sessionData: InsertSession): Promise<Session>;
+  getSessionById(id: string): Promise<SessionWithDetails | undefined>;
+  getUpcomingSessionsByUser(userId: string): Promise<SessionWithDetails[]>;
+  getSessionsByGroup(groupId: string): Promise<SessionWithDetails[]>;
+  updateSession(id: string, data: Partial<InsertSession>): Promise<Session>;
+
+  // Message operations
+  createMessage(messageData: InsertMessage): Promise<Message>;
+  getMessagesByGroup(groupId: string): Promise<MessageWithUser[]>;
+
+  // Checklist operations
+  createChecklistItem(itemData: InsertChecklistItem): Promise<ChecklistItem>;
+  updateChecklistItem(id: string, data: Partial<InsertChecklistItem>): Promise<ChecklistItem>;
+  getChecklistItemsBySession(sessionId: string): Promise<ChecklistItem[]>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
+  // User operations
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  async updateUserPreferences(id: string, preferences: UpdateUserPreferences): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        ...preferences,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async getAllUsersForMatching(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
+  // Class operations
+  async createClass(userId: string, classData: InsertClass): Promise<Class> {
+    const [cls] = await db
+      .insert(classes)
+      .values({ ...classData, userId })
+      .returning();
+    return cls;
+  }
+
+  async getClassesByUser(userId: string): Promise<Class[]> {
+    return await db
+      .select()
+      .from(classes)
+      .where(eq(classes.userId, userId));
+  }
+
+  async deleteClass(id: string): Promise<void> {
+    await db.delete(classes).where(eq(classes.id, id));
+  }
+
+  // Availability operations
+  async createAvailability(userId: string, availabilityData: InsertAvailability): Promise<Availability> {
+    const [avail] = await db
+      .insert(availability)
+      .values({ ...availabilityData, userId })
+      .returning();
+    return avail;
+  }
+
+  async getAvailabilityByUser(userId: string): Promise<Availability[]> {
+    return await db
+      .select()
+      .from(availability)
+      .where(eq(availability.userId, userId));
+  }
+
+  async deleteAvailability(id: string): Promise<void> {
+    await db.delete(availability).where(eq(availability.id, id));
+  }
+
+  // Group operations
+  async createGroup(groupData: InsertGroup): Promise<Group> {
+    const [group] = await db.insert(groups).values(groupData).returning();
+    return group;
+  }
+
+  async getGroupById(id: string): Promise<GroupWithMembers | undefined> {
+    const [group] = await db
+      .select()
+      .from(groups)
+      .where(eq(groups.id, id));
+
+    if (!group) return undefined;
+
+    const members = await db
+      .select()
+      .from(groupMembers)
+      .leftJoin(users, eq(groupMembers.userId, users.id))
+      .where(eq(groupMembers.groupId, id));
+
+    return {
+      ...group,
+      members: members.map(m => ({
+        id: m.group_members.id,
+        groupId: m.group_members.groupId,
+        userId: m.group_members.userId,
+        joinedAt: m.group_members.joinedAt,
+        user: m.users!,
+      })),
+    };
+  }
+
+  async getGroupsByUser(userId: string): Promise<GroupWithMembers[]> {
+    const userGroups = await db
+      .select()
+      .from(groupMembers)
+      .where(eq(groupMembers.userId, userId));
+
+    const groupsWithMembers: GroupWithMembers[] = [];
+
+    for (const userGroup of userGroups) {
+      const group = await this.getGroupById(userGroup.groupId);
+      if (group) {
+        groupsWithMembers.push(group);
+      }
+    }
+
+    return groupsWithMembers;
+  }
+
+  async addUserToGroup(groupId: string, userId: string): Promise<GroupMember> {
+    const [member] = await db
+      .insert(groupMembers)
+      .values({ groupId, userId })
+      .returning();
+    return member;
+  }
+
+  // Session operations
+  async createSession(sessionData: InsertSession): Promise<Session> {
+    const [session] = await db
+      .insert(sessions_study)
+      .values(sessionData)
+      .returning();
+    return session;
+  }
+
+  async getSessionById(id: string): Promise<SessionWithDetails | undefined> {
+    const [session] = await db
+      .select()
+      .from(sessions_study)
+      .where(eq(sessions_study.id, id));
+
+    if (!session) return undefined;
+
+    const group = await this.getGroupById(session.groupId);
+    const checklistItemsData = await this.getChecklistItemsBySession(id);
+
+    if (!group) return undefined;
+
+    return {
+      ...session,
+      group,
+      checklistItems: checklistItemsData,
+    };
+  }
+
+  async getUpcomingSessionsByUser(userId: string): Promise<SessionWithDetails[]> {
+    const userGroups = await this.getGroupsByUser(userId);
+    const sessions: SessionWithDetails[] = [];
+
+    for (const group of userGroups) {
+      const groupSessions = await db
+        .select()
+        .from(sessions_study)
+        .where(eq(sessions_study.groupId, group.id))
+        .orderBy(desc(sessions_study.scheduledAt));
+
+      for (const session of groupSessions) {
+        const checklistItemsData = await this.getChecklistItemsBySession(session.id);
+        sessions.push({
+          ...session,
+          group,
+          checklistItems: checklistItemsData,
+        });
+      }
+    }
+
+    return sessions.sort((a, b) => {
+      if (!a.scheduledAt) return 1;
+      if (!b.scheduledAt) return -1;
+      return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+    });
+  }
+
+  async getSessionsByGroup(groupId: string): Promise<SessionWithDetails[]> {
+    const groupSessions = await db
+      .select()
+      .from(sessions_study)
+      .where(eq(sessions_study.groupId, groupId))
+      .orderBy(desc(sessions_study.scheduledAt));
+
+    const group = await this.getGroupById(groupId);
+    if (!group) return [];
+
+    const sessions: SessionWithDetails[] = [];
+
+    for (const session of groupSessions) {
+      const checklistItemsData = await this.getChecklistItemsBySession(session.id);
+      sessions.push({
+        ...session,
+        group,
+        checklistItems: checklistItemsData,
+      });
+    }
+
+    return sessions;
+  }
+
+  async updateSession(id: string, data: Partial<InsertSession>): Promise<Session> {
+    const [session] = await db
+      .update(sessions_study)
+      .set(data)
+      .where(eq(sessions_study.id, id))
+      .returning();
+    return session;
+  }
+
+  // Message operations
+  async createMessage(messageData: InsertMessage): Promise<Message> {
+    const [message] = await db
+      .insert(messages)
+      .values(messageData)
+      .returning();
+    return message;
+  }
+
+  async getMessagesByGroup(groupId: string): Promise<MessageWithUser[]> {
+    const groupMessages = await db
+      .select()
+      .from(messages)
+      .leftJoin(users, eq(messages.userId, users.id))
+      .where(eq(messages.groupId, groupId))
+      .orderBy(messages.createdAt);
+
+    return groupMessages.map(m => ({
+      ...m.messages,
+      user: m.users!,
+    }));
+  }
+
+  // Checklist operations
+  async createChecklistItem(itemData: InsertChecklistItem): Promise<ChecklistItem> {
+    const [item] = await db
+      .insert(checklistItems)
+      .values(itemData)
+      .returning();
+    return item;
+  }
+
+  async updateChecklistItem(id: string, data: Partial<InsertChecklistItem>): Promise<ChecklistItem> {
+    const [item] = await db
+      .update(checklistItems)
+      .set(data)
+      .where(eq(checklistItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async getChecklistItemsBySession(sessionId: string): Promise<ChecklistItem[]> {
+    return await db
+      .select()
+      .from(checklistItems)
+      .where(eq(checklistItems.sessionId, sessionId));
+  }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
