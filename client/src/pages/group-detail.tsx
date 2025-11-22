@@ -63,26 +63,47 @@ export default function GroupDetail() {
     if (!id || !isAuthenticated) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const socket = new WebSocket(wsUrl);
+    const hostname = window.location.hostname;
+    const port = window.location.port;
+    const wsUrl = `${protocol}//${hostname}${port ? `:${port}` : ""}/ws`;
 
-    socket.onopen = () => {
-      socket.send(JSON.stringify({ type: "join", groupId: id }));
-    };
+    try {
+      const socket = new WebSocket(wsUrl);
 
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "message" && data.groupId === id) {
-        setMessages(prev => [...prev, data.message]);
-      }
-    };
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ type: "join", groupId: id }));
+      };
 
-    setWs(socket);
+      socket.onerror = (event) => {
+        console.error("WebSocket error:", event);
+        toast({
+          title: "Connection Error",
+          description: "Failed to connect to chat. Please try refreshing.",
+          variant: "destructive",
+        });
+      };
 
-    return () => {
-      socket.close();
-    };
-  }, [id, isAuthenticated]);
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === "message" && data.groupId === id) {
+          setMessages(prev => [...prev, data.message]);
+        }
+      };
+
+      setWs(socket);
+
+      return () => {
+        socket.close();
+      };
+    } catch (error) {
+      console.error("WebSocket connection failed:", error);
+      toast({
+        title: "Connection Error",
+        description: "Unable to establish WebSocket connection.",
+        variant: "destructive",
+      });
+    }
+  }, [id, isAuthenticated, toast]);
 
   // Load initial messages
   const { data: initialMessages } = useQuery<MessageWithUser[]>({

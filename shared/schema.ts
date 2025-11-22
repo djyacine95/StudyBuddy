@@ -95,6 +95,12 @@ export const sessions_study = pgTable("sessions_study", {
   practiceQuestions: jsonb("practice_questions"), // Array of {question, answer}
   timeSchedule: jsonb("time_schedule"), // Array of {time, activity}
   
+  // Session completion tracking
+  completedAt: timestamp("completed_at"),
+  checklistCompletionPercent: integer("checklist_completion_percent").default(0),
+  successRating: integer("success_rating"), // 1-5 scale
+  feedback: text("feedback"),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
