@@ -10,6 +10,7 @@ import Settings from "@/pages/settings";
 import Schedule from "@/pages/schedule";
 import GroupDetail from "@/pages/group-detail";
 import Matching from "@/pages/matching";
+import Analytics from "@/pages/analytics";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -25,6 +26,7 @@ function Router() {
           <Route path="/settings" component={Settings} />
           <Route path="/schedule" component={Schedule} />
           <Route path="/matching" component={Matching} />
+          <Route path="/analytics" component={Analytics} />
           <Route path="/groups/:id" component={GroupDetail} />
         </>
       )}

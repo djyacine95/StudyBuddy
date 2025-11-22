@@ -15,7 +15,9 @@ import {
   Sparkles, 
   Clock,
   Plus,
-  BookOpen
+  BookOpen,
+  TrendingUp,
+  Upload
 } from "lucide-react";
 import { Link } from "wouter";
 import type { GroupWithMembers, SessionWithDetails } from "@shared/schema";
@@ -89,6 +91,11 @@ export default function Home() {
                 <Link href="/schedule">
                   <a className="text-sm font-medium text-muted-foreground hover-elevate px-3 py-2 rounded-md" data-testid="link-schedule">
                     Schedule
+                  </a>
+                </Link>
+                <Link href="/analytics">
+                  <a className="text-sm font-medium text-muted-foreground hover-elevate px-3 py-2 rounded-md" data-testid="link-analytics">
+                    Analytics
                   </a>
                 </Link>
                 <Link href="/settings">
