@@ -75,45 +75,33 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <Link href="/">
-                <a className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-md" data-testid="link-home">
-                  <Sparkles className="w-6 h-6 text-primary" />
-                  <span className="font-bold text-xl">StudyBuddy</span>
-                </a>
+              <Link href="/" className="flex items-center gap-2 hover-elevate px-2 py-1 rounded-md" data-testid="link-home">
+                <Sparkles className="w-6 h-6 text-primary" />
+                <span className="font-bold text-xl">StudyBuddy</span>
               </Link>
 
               <nav className="hidden md:flex items-center gap-6">
-                <Link href="/">
-                  <a className="text-sm font-medium hover-elevate px-3 py-2 rounded-md" data-testid="link-dashboard">
-                    Dashboard
-                  </a>
+                <Link href="/" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md" data-testid="link-dashboard">
+                  Dashboard
                 </Link>
-                <Link href="/schedule">
-                  <a className="text-sm font-medium text-muted-foreground hover-elevate px-3 py-2 rounded-md" data-testid="link-schedule">
-                    Schedule
-                  </a>
+                <Link href="/schedule" className="text-sm font-medium text-muted-foreground hover-elevate px-3 py-2 rounded-md" data-testid="link-schedule">
+                  Schedule
                 </Link>
-                <Link href="/analytics">
-                  <a className="text-sm font-medium text-muted-foreground hover-elevate px-3 py-2 rounded-md" data-testid="link-analytics">
-                    Analytics
-                  </a>
+                <Link href="/analytics" className="text-sm font-medium text-muted-foreground hover-elevate px-3 py-2 rounded-md" data-testid="link-analytics">
+                  Analytics
                 </Link>
-                <Link href="/settings">
-                  <a className="text-sm font-medium text-muted-foreground hover-elevate px-3 py-2 rounded-md" data-testid="link-settings">
-                    Settings
-                  </a>
+                <Link href="/settings" className="text-sm font-medium text-muted-foreground hover-elevate px-3 py-2 rounded-md" data-testid="link-settings">
+                  Settings
                 </Link>
               </nav>
             </div>
 
             <div className="flex items-center gap-4">
-              <Link href="/settings">
-                <a data-testid="link-profile">
-                  <Avatar className="h-9 w-9 hover-elevate cursor-pointer">
-                    <AvatarImage src={user?.profileImageUrl || undefined} />
-                    <AvatarFallback>{userInitials}</AvatarFallback>
-                  </Avatar>
-                </a>
+              <Link href="/settings" className="h-9 w-9" data-testid="link-profile">
+                <Avatar className="h-9 w-9 hover-elevate cursor-pointer">
+                  <AvatarImage src={user?.profileImageUrl || undefined} />
+                  <AvatarFallback>{userInitials}</AvatarFallback>
+                </Avatar>
               </Link>
               <Button 
                 variant="ghost" 
@@ -154,11 +142,9 @@ export default function Home() {
                   </p>
                 </div>
                 <Button asChild data-testid="button-setup-profile">
-                  <Link href="/settings">
-                    <a className="flex items-center gap-2">
-                      <Settings className="w-4 h-4" />
-                      Set Up Profile
-                    </a>
+                  <Link href="/settings" className="flex items-center gap-2">
+                    <Settings className="w-4 h-4" />
+                    Set Up Profile
                   </Link>
                 </Button>
               </div>
@@ -174,11 +160,9 @@ export default function Home() {
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-semibold">My Study Groups</h2>
                 <Button size="sm" variant="outline" asChild data-testid="button-find-groups">
-                  <Link href="/matching">
-                    <a className="flex items-center gap-2">
-                      <Plus className="w-4 h-4" />
-                      Find Groups
-                    </a>
+                  <Link href="/matching" className="flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Find Groups
                   </Link>
                 </Button>
               </div>
