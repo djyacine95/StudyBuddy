@@ -320,27 +320,21 @@ export default function Home() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <Button variant="outline" className="w-full justify-start" asChild data-testid="button-add-class">
-                  <Link href="/schedule">
-                    <a className="flex items-center gap-2">
-                      <BookOpen className="w-4 h-4" />
-                      Add a Class
-                    </a>
+                  <Link href="/schedule" className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4" />
+                    Add a Class
                   </Link>
                 </Button>
                 <Button variant="outline" className="w-full justify-start" asChild data-testid="button-update-availability">
-                  <Link href="/settings">
-                    <a className="flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      Update Availability
-                    </a>
+                  <Link href="/settings" className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Update Availability
                   </Link>
                 </Button>
                 <Button variant="outline" className="w-full justify-start" asChild data-testid="button-manage-settings">
-                  <Link href="/settings">
-                    <a className="flex items-center gap-2">
-                      <Settings className="w-4 h-4" />
-                      Manage Settings
-                    </a>
+                  <Link href="/settings" className="flex items-center gap-2">
+                    <Settings className="w-4 h-4" />
+                    Manage Settings
                   </Link>
                 </Button>
               </CardContent>

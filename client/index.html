@@ -12,6 +12,17 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Configure Vite HMR for Replit environment
+      if (window.location.hostname.includes('repl.co')) {
+        window.__VITE_HMR__ = {
+          protocol: 'wss',
+          hostname: window.location.hostname,
+          port: 443,
+          base: '/'
+        };
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
