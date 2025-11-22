@@ -343,6 +343,129 @@ export class DatabaseStorage implements IStorage {
       .from(checklistItems)
       .where(eq(checklistItems.sessionId, sessionId));
   }
+
+  // Analytics operations
+  async getAnalyticsForUser(userId: string): Promise<{
+    totalSessions: number;
+    completedSessions: number;
+    averageCompletionRate: number;
+    averageSuccessRating: number;
+    totalStudyTime: number;
+    sessionsPerDay: Array<{ date: string; count: number; hours: number }>;
+    topicPerformance: Array<{ topic: string; sessionsCompleted: number; avgRating: number }>;
+    weeklyTrend: Array<{ week: string; completedSessions: number; avgRating: number }>;
+  }> {
+    // Get all sessions for user's groups
+    const userGroups = await this.getGroupsByUser(userId);
+    const allSessions: SessionWithDetails[] = [];
+    
+    for (const group of userGroups) {
+      const groupSessions = await this.getSessionsByGroup(group.id);
+      allSessions.push(...groupSessions);
+    }
+
+    const completedSessions = allSessions.filter(s => s.completedAt);
+    const totalStudyTime = allSessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+    
+    const avgCompletionRate = completedSessions.length > 0
+      ? completedSessions.reduce((sum, s) => sum + (s.checklistCompletionPercent || 0), 0) / completedSessions.length
+      : 0;
+
+    const avgSuccessRating = completedSessions.length > 0
+      ? completedSessions.reduce((sum, s) => sum + (s.successRating || 0), 0) / completedSessions.length
+      : 0;
+
+    // Group by date for daily activity
+    const sessionsPerDayMap = new Map<string, { count: number; hours: number }>();
+    allSessions.forEach(s => {
+      const date = s.scheduledAt.toISOString().split('T')[0];
+      const existing = sessionsPerDayMap.get(date) || { count: 0, hours: 0 };
+      sessionsPerDayMap.set(date, {
+        count: existing.count + 1,
+        hours: existing.hours + (s.duration || 0) / 60,
+      });
+    });
+
+    const sessionsPerDay = Array.from(sessionsPerDayMap.entries())
+      .map(([date, data]) => ({ date, ...data }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-30); // Last 30 days
+
+    // Topic performance
+    const topicMap = new Map<string, { sessionsCompleted: number; totalRating: number; count: number }>();
+    completedSessions.forEach(s => {
+      const topics = s.group.topics || [];
+      topics.forEach(topic => {
+        const existing = topicMap.get(topic) || { sessionsCompleted: 0, totalRating: 0, count: 0 };
+        topicMap.set(topic, {
+          sessionsCompleted: existing.sessionsCompleted + 1,
+          totalRating: existing.totalRating + (s.successRating || 0),
+          count: existing.count + 1,
+        });
+      });
+    });
+
+    const topicPerformance = Array.from(topicMap.entries())
+      .map(([topic, data]) => ({
+        topic,
+        sessionsCompleted: data.sessionsCompleted,
+        avgRating: data.count > 0 ? data.totalRating / data.count : 0,
+      }))
+      .sort((a, b) => b.sessionsCompleted - a.sessionsCompleted)
+      .slice(0, 10);
+
+    // Weekly trend
+    const weeklyMap = new Map<string, { completedSessions: number; totalRating: number; count: number }>();
+    completedSessions.forEach(s => {
+      const date = s.scheduledAt;
+      const weekStart = new Date(date);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const weekKey = weekStart.toISOString().split('T')[0];
+      
+      const existing = weeklyMap.get(weekKey) || { completedSessions: 0, totalRating: 0, count: 0 };
+      weeklyMap.set(weekKey, {
+        completedSessions: existing.completedSessions + 1,
+        totalRating: existing.totalRating + (s.successRating || 0),
+        count: existing.count + 1,
+      });
+    });
+
+    const weeklyTrend = Array.from(weeklyMap.entries())
+      .map(([week, data]) => ({
+        week,
+        completedSessions: data.completedSessions,
+        avgRating: data.count > 0 ? data.totalRating / data.count : 0,
+      }))
+      .sort((a, b) => a.week.localeCompare(b.week))
+      .slice(-12); // Last 12 weeks
+
+    return {
+      totalSessions: allSessions.length,
+      completedSessions: completedSessions.length,
+      averageCompletionRate: avgCompletionRate,
+      averageSuccessRating: avgSuccessRating,
+      totalStudyTime,
+      sessionsPerDay,
+      topicPerformance,
+      weeklyTrend,
+    };
+  }
+
+  async completeSession(sessionId: string, successRating: number, feedback: string): Promise<Session> {
+    const completionPercent = 75; // Default 75% if not specified
+    
+    const [session] = await db
+      .update(sessions_study)
+      .set({
+        completedAt: new Date(),
+        checklistCompletionPercent: completionPercent,
+        successRating,
+        feedback,
+      })
+      .where(eq(sessions_study.id, sessionId))
+      .returning();
+    return session;
+  }
 }
 
 export const storage = new DatabaseStorage();
