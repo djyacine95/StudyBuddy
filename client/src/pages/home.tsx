@@ -184,59 +184,57 @@ export default function Home() {
               ) : groups && groups.length > 0 ? (
                 <div className="grid sm:grid-cols-2 gap-4">
                   {groups.map((group) => (
-                    <Card key={group.id} className="hover-elevate cursor-pointer" data-testid={`card-group-${group.id}`}>
-                      <Link href={`/groups/${group.id}`}>
-                        <a>
-                          <CardHeader>
-                            <div className="flex items-start justify-between gap-2">
-                              <CardTitle className="text-lg">{group.name}</CardTitle>
-                              <Badge variant="secondary" className="flex-shrink-0">
-                                <Users className="w-3 h-3 mr-1" />
-                                {group.members?.length || 0}
+                    <Link key={group.id} href={`/groups/${group.id}`} className="block" data-testid={`card-group-${group.id}`}>
+                      <Card className="hover-elevate cursor-pointer h-full">
+                        <CardHeader>
+                          <div className="flex items-start justify-between gap-2">
+                            <CardTitle className="text-lg">{group.name}</CardTitle>
+                            <Badge variant="secondary" className="flex-shrink-0">
+                              <Users className="w-3 h-3 mr-1" />
+                              {group.members?.length || 0}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {/* Member avatars */}
+                          <div className="flex -space-x-2">
+                            {group.members?.slice(0, 4).map((member) => (
+                              <Avatar key={member.id} className="w-8 h-8 border-2 border-background">
+                                <AvatarImage src={member.user.profileImageUrl || undefined} />
+                                <AvatarFallback className="text-xs">
+                                  {member.user.firstName?.[0]}{member.user.lastName?.[0]}
+                                </AvatarFallback>
+                              </Avatar>
+                            ))}
+                            {(group.members?.length || 0) > 4 && (
+                              <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium">
+                                +{(group.members?.length || 0) - 4}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Topics */}
+                          <div className="flex flex-wrap gap-2">
+                            {group.topics?.slice(0, 3).map((topic, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs">
+                                {topic}
                               </Badge>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            {/* Member avatars */}
-                            <div className="flex -space-x-2">
-                              {group.members?.slice(0, 4).map((member) => (
-                                <Avatar key={member.id} className="w-8 h-8 border-2 border-background">
-                                  <AvatarImage src={member.user.profileImageUrl || undefined} />
-                                  <AvatarFallback className="text-xs">
-                                    {member.user.firstName?.[0]}{member.user.lastName?.[0]}
-                                  </AvatarFallback>
-                                </Avatar>
-                              ))}
-                              {(group.members?.length || 0) > 4 && (
-                                <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium">
-                                  +{(group.members?.length || 0) - 4}
-                                </div>
-                              )}
-                            </div>
+                            ))}
+                          </div>
 
-                            {/* Topics */}
-                            <div className="flex flex-wrap gap-2">
-                              {group.topics?.slice(0, 3).map((topic, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs">
-                                  {topic}
-                                </Badge>
-                              ))}
-                            </div>
-
-                            {/* Quick actions */}
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline" className="flex-1" data-testid={`button-chat-${group.id}`}>
-                                <MessageSquare className="w-4 h-4 mr-2" />
-                                Chat
-                              </Button>
-                              <Button size="sm" variant="outline" data-testid={`button-schedule-${group.id}`}>
-                                <Calendar className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </a>
-                      </Link>
-                    </Card>
+                          {/* Quick actions */}
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" className="flex-1" data-testid={`button-chat-${group.id}`}>
+                              <MessageSquare className="w-4 h-4 mr-2" />
+                              Chat
+                            </Button>
+                            <Button size="sm" variant="outline" data-testid={`button-schedule-${group.id}`}>
+                              <Calendar className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
                   ))}
                 </div>
               ) : (
@@ -248,11 +246,9 @@ export default function Home() {
                       Complete your profile and get matched with compatible study partners
                     </p>
                     <Button asChild data-testid="button-empty-find-groups">
-                      <Link href="/matching">
-                        <a className="flex items-center gap-2">
-                          <Plus className="w-4 h-4" />
-                          Find Study Groups
-                        </a>
+                      <Link href="/matching" className="flex items-center gap-2">
+                        <Plus className="w-4 h-4" />
+                        Find Study Groups
                       </Link>
                     </Button>
                   </CardContent>
