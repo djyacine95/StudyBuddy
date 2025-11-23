@@ -35,7 +35,7 @@ export default function Landing() {
                 className="text-lg px-8 h-12"
                 asChild
               >
-                <a href="/api/login" data-testid="button-get-started">
+                <a href="https://studybuddy-f5rz.onrender.com/api/login" data-testid="button-get-started">
                   Get Started Free
                 </a>
               </Button>

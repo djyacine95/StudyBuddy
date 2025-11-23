@@ -1,162 +1,83 @@
-import * as client from "openid-client";
-import { Strategy, type VerifyFunction } from "openid-client/passport";
-
 import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import session from "express-session";
-import type { Express, RequestHandler } from "express";
-import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
+import { Express } from "express";
 import { storage } from "./storage";
 
-const getOidcConfig = memoize(
-  async () => {
-    return await client.discovery(
-      new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
-      process.env.REPL_ID!
-    );
-  },
-  { maxAge: 3600 * 1000 }
-);
+// 🔴 IMPORTANT: Update this to your ACTUAL Frontend URL (No trailing slash)
+// Example: "https://studybuddy-client.onrender.com"
+const FRONTEND_URL = "https://studybuddy-client-vxmb.onrender.com/"; 
 
-export function getSession() {
-  const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
-  return session({
-    secret: process.env.SESSION_SECRET!,
-    store: sessionStore,
+export function setupAuth(app: Express) {
+  const PgSession = connectPg(session);
+  
+  // 1. Setup Session (Database storage for login cookies)
+  app.use(session({
+    store: new PgSession({ 
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: true 
+    }),
+    secret: process.env.SESSION_SECRET || "super_secret_key",
     resave: false,
     saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: true,
-      maxAge: sessionTtl,
-    },
-  });
-}
+    cookie: { 
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      secure: app.get("env") === "production" // True if on HTTPS (Render)
+    }
+  }));
 
-function updateUserSession(
-  user: any,
-  tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers
-) {
-  user.claims = tokens.claims();
-  user.access_token = tokens.access_token;
-  user.refresh_token = tokens.refresh_token;
-  user.expires_at = user.claims?.exp;
-}
-
-async function upsertUser(
-  claims: any,
-) {
-  await storage.upsertUser({
-    id: claims["sub"],
-    email: claims["email"],
-    firstName: claims["first_name"],
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"],
-  });
-}
-
-export async function setupAuth(app: Express) {
-  app.set("trust proxy", 1);
-  app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
 
-  const config = await getOidcConfig();
-
-  const verify: VerifyFunction = async (
-    tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
-    verified: passport.AuthenticateCallback
-  ) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
-    verified(null, user);
-  };
-
-  // Keep track of registered strategies
-  const registeredStrategies = new Set<string>();
-
-  // Helper function to ensure strategy exists for a domain
-  const ensureStrategy = (domain: string) => {
-    const strategyName = `replitauth:${domain}`;
-    if (!registeredStrategies.has(strategyName)) {
-      const strategy = new Strategy(
-        {
-          name: strategyName,
-          config,
-          scope: "openid email profile offline_access",
-          callbackURL: `https://${domain}/api/callback`,
-        },
-        verify,
-      );
-      passport.use(strategy);
-      registeredStrategies.add(strategyName);
+  // 2. Setup Google Login Strategy
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    callbackURL: "/api/auth/google/callback"
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      // Save or update user in your database
+      // We map Google's data fields to your database fields
+      const user = await storage.upsertUser({
+        id: profile.id,
+        email: profile.emails?.[0].value || "",
+        firstName: profile.name?.givenName || "",
+        lastName: profile.name?.familyName || "",
+        profileImageUrl: profile.photos?.[0].value || ""
+      });
+      done(null, user);
+    } catch (err) {
+      done(err);
     }
-  };
+  }));
 
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
-
-  app.get("/api/login", (req, res, next) => {
-    ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
-    })(req, res, next);
+  passport.serializeUser((user: any, done) => done(null, user.id));
+  passport.deserializeUser(async (id: string, done) => {
+    const user = await storage.getUser(id);
+    done(null, user);
   });
 
-  app.get("/api/callback", (req, res, next) => {
-    ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
-    })(req, res, next);
-  });
+  // 3. Define Routes
+  
+  // When user clicks "Login", send them to Google
+  app.get("/api/login", passport.authenticate("google", { scope: ["profile", "email"] }));
 
-  app.get("/api/logout", (req, res) => {
-    req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
+  // When Google sends them back, handle it
+  app.get("/api/auth/google/callback",
+    passport.authenticate("google", { 
+      failureRedirect: FRONTEND_URL + "/" 
+    }),
+    (req, res) => {
+      // Success! Go back to the Frontend Dashboard
+      res.redirect(FRONTEND_URL + "/");
+    }
+  );
+
+  app.get("/api/logout", (req, res, next) => {
+    req.logout((err) => {
+      if (err) return next(err);
+      res.redirect(FRONTEND_URL + "/");
     });
   });
 }
-
-export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  const user = req.user as any;
-
-  if (!req.isAuthenticated() || !user.expires_at) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  if (now <= user.expires_at) {
-    return next();
-  }
-
-  const refreshToken = user.refresh_token;
-  if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  try {
-    const config = await getOidcConfig();
-    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
-    updateUserSession(user, tokenResponse);
-    return next();
-  } catch (error) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-};
