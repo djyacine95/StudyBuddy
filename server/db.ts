@@ -1,9 +1,12 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import ws from "ws";
 import * as schema from "@shared/schema";
 
-neonConfig.webSocketConstructor = ws;
+// We keep these imports to avoid breaking other files, 
+// but we will use the standard 'pg' connection for Render.
+import pg from 'pg';
+const { Pool: PgPool } = pg;
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -11,5 +14,10 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+// Create a standard PostgreSQL connection pool
+export const pool = new PgPool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+// Initialize Drizzle with the standard node-postgres driver
+export const db = drizzle(pool, { schema });
