@@ -15,9 +15,10 @@ export function setupAuth(app: Express) {
   
   // 1. Setup Session (Database storage for login cookies)
   app.use(session({
-    store: new PgSession({ 
+   store: new PgSession({ 
       conString: process.env.DATABASE_URL,
-      createTableIfMissing: false 
+      createTableIfMissing: true,  // 🟢 Force creation
+      tableName: 'user_sessions'   // 🟢 New unique name to avoid conflicts
     }),
     secret: process.env.SESSION_SECRET || "super_secret_key",
     resave: false,
