@@ -17,7 +17,7 @@ export function setupAuth(app: Express) {
   app.use(session({
     store: new PgSession({ 
       conString: process.env.DATABASE_URL,
-      createTableIfMissing: true 
+      createTableIfMissing: false 
     }),
     secret: process.env.SESSION_SECRET || "super_secret_key",
     resave: false,
