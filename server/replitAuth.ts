@@ -10,13 +10,14 @@ import { storage } from "./storage";
 const FRONTEND_URL = "https://studybuddy-client-vxmb.onrender.com/"; 
 
 export function setupAuth(app: Express) {
+  app.set("trust proxy", 1);
   const PgSession = connectPg(session);
   
   // 1. Setup Session (Database storage for login cookies)
   app.use(session({
     store: new PgSession({ 
       conString: process.env.DATABASE_URL,
-      createTableIfMissing: false 
+      createTableIfMissing: true 
     }),
     secret: process.env.SESSION_SECRET || "super_secret_key",
     resave: false,
