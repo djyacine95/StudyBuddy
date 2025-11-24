@@ -15,17 +15,18 @@ export function setupAuth(app: Express) {
   
   // 1. Setup Session (Database storage for login cookies)
   app.use(session({
-   store: new PgSession({ 
+    store: new PgSession({ 
       conString: process.env.DATABASE_URL,
-      createTableIfMissing: true,  // 🟢 Force creation
-      tableName: 'user_sessions'   // 🟢 New unique name to avoid conflicts
+      createTableIfMissing: false, 
+      tableName: 'user_sessions' 
     }),
     secret: process.env.SESSION_SECRET || "super_secret_key",
     resave: false,
     saveUninitialized: false,
     cookie: { 
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      secure: app.get("env") === "production" // True if on HTTPS (Render)
+      maxAge: 30 * 24 * 60 * 60 * 1000, 
+      secure: true,      // 🟢 Force Secure (Required for Render)
+      sameSite: "none",  // 🟢 Allow Cross-Site (Frontend <-> Backend)
     }
   }));
 
